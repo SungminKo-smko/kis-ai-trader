@@ -1,0 +1,41 @@
+app:
+  name: "KIS AI Trader"
+  env: "paper"  # "paper" or "live"
+  log_level: "INFO"
+  timezone: "Asia/Seoul"
+
+kis:
+  paper:
+    base_url: "https://openapivts.koreainvestment.com:29443"
+    websocket_url: "ws://ops.koreainvestment.com:31000"
+  live:
+    base_url: "https://openapi.koreainvestment.com:9443"
+    websocket_url: "ws://ops.koreainvestment.com:21000"
+
+database:
+  url: "postgresql+asyncpg://trader:${DB_PASSWORD}@postgres:5432/kis_trader"
+  pool_size: 10
+  max_overflow: 20
+
+redis:
+  url: "redis://redis:6379/0"
+  cache_ttl_seconds: 5
+
+scheduler:
+  daily_cycle_cron: "0 8 50 * * MON-FRI"
+  data_collection_interval_minutes: 5
+  portfolio_snapshot_cron: "0 16 0 * * MON-FRI"
+  rebalance_check_cron: "0 9 0 * * MON-FRI"
+
+universe:
+  max_stocks: 30
+  markets: ["KOSPI", "KOSDAQ"]
+  min_market_cap_billion: 5000
+  min_daily_volume: 100000
+  excluded_sectors: ["금융"]
+
+trading:
+  mode: "NEUTRAL"
+  max_concurrent_positions: 10
+  order_split_threshold: 10000000
+  order_split_count: 3
