@@ -64,6 +64,56 @@ KIS AI Trader is an intelligent trading system that leverages AI agents for auto
 | **Portfolio Manager** | Position sizing and portfolio rebalancing |
 | **CIO** | Final decision making and emergency handling |
 
+## KIS API Setup
+
+### 1. Apply for KIS Open API
+
+1. **Apply on KIS Developers Portal**: https://apiportal.koreainvestment.com
+2. Get **APP Key** and **APP Secret** (for both paper and live trading)
+3. Apply for **Paper Trading** (virtual account)
+
+### 2. Environment Variables
+
+Create `.env` file in project root:
+
+```bash
+# KIS API Credentials
+KIS_APP_KEY=your_paper_app_key        # 36 characters
+KIS_APP_SECRET=your_paper_app_secret   # 180 characters
+KIS_ACCOUNT_NO=12345678-01            # Account number (8 digits - 2 digits)
+KIS_HTS_ID=your_hts_id                # HTS Login ID
+
+# Database
+DB_PASSWORD=your_db_password
+
+# Notifications (Telegram)
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# AI (OpenAI)
+OPENAI_API_KEY=your_openai_key
+```
+
+### 3. Configuration
+
+Edit `config/settings.yaml`:
+
+```yaml
+app:
+  name: "KIS AI Trader"
+  env: "paper"  # "paper" or "live"
+  log_level: "INFO"
+  timezone: "Asia/Seoul"
+
+kis:
+  paper:
+    base_url: "https://openapivts.koreainvestment.com:29443"
+    websocket_url: "ws://ops.koreainvestment.com:31000"
+  live:
+    base_url: "https://openapi.koreainvestment.com:9443"
+    websocket_url: "ws://ops.koreainvestment.com:21000"
+```
+
 ## Installation
 
 ### Prerequisites
@@ -77,7 +127,7 @@ KIS AI Trader is an intelligent trading system that leverages AI agents for auto
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/SungminKo-smko/kis-ai-trader
 cd kis-ai-trader
 
 # Create virtual environment
@@ -87,13 +137,11 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
 # Install dependencies
-pip install -e .
+pip install -r requirements.txt
 
-# Setup configuration
-cp config/settings.example.yaml config/settings.yaml
-cp config/risk.example.yaml config/risk.yaml
-
-# Edit configuration files with your credentials
+# Setup environment
+cp .env.example .env
+# Edit .env with your credentials
 ```
 
 ### Docker Setup
@@ -107,54 +155,6 @@ docker-compose logs -f
 
 # Stop services
 docker-compose down
-```
-
-## Configuration
-
-### settings.yaml
-
-```yaml
-app:
-  name: "KIS AI Trader"
-  env: "development"
-  debug: true
-
-kis:
-  app_key: "your_app_key"
-  app_secret: "your_app_secret"
-  account_number: "your_account_number"
-  is_demo: true  # Use demo account
-
-database:
-  host: "localhost"
-  port: 5432
-  name: "kis_trader"
-  user: "postgres"
-  password: "your_password"
-
-redis:
-  host: "localhost"
-  port: 6379
-
-logging:
-  level: "INFO"
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-```
-
-### risk.yaml
-
-```yaml
-risk:
-  max_position_size: 0.1       # 10% of portfolio per position
-  max_total_leverage: 1.0        # No leverage
-  max_sector_concentration: 0.3 # 30% per sector
-  daily_loss_limit: 0.02        # 2% daily loss limit
-  monthly_loss_limit: 0.05     # 5% monthly loss limit
-
-circuit_breaker:
-  enabled: true
-  consecutive_losses: 3
-  pause_duration_minutes: 60
 ```
 
 ## Usage
@@ -182,6 +182,74 @@ pytest tests/test_collector_agent.py
 pytest --cov=src tests/
 ```
 
+## KIS API Usage Examples
+
+### Using KISClient
+
+```python
+from broker.kis_client import KISClient, create_kis_client
+from decimal import Decimal
+
+# Create client
+client = create_kis_client(
+    app_key="your_app_key",
+    app_secret="your_app_secret",
+    account_no="12345678-01",
+    is_paper=True,  # True for paper trading
+    hts_id="your_hts_id",
+)
+
+# Get current price
+price = client.get_current_price("005930")  # Samsung Electronics
+print(f"Price: {price}")
+
+# Get quote with indicators
+quote = client.get_quote("005930")
+print(f"PER: {quote['indicator']['per']}")
+print(f"PBR: {quote['indicator']['pbr']}")
+
+# Get OHLCV chart
+chart = client.get_chart("005930", period="1d")
+for bar in chart:
+    print(f"{bar['time']}: O={bar['open']} H={bar['high']} L={bar['low']} C={bar['close']}")
+
+# Get account balance
+balance = client.get_balance()
+print(f"Total assets: {balance['current_amount']}")
+
+# Place buy order
+order = client.buy("005930", quantity=10)  # Buy 10 shares at market price
+# or with limit price
+order = client.buy("005930", quantity=10, price=Decimal("70000"))
+
+# Place sell order
+order = client.sell("005930", quantity=10)
+
+# Cancel order
+client.cancel_order(order_number="123456")
+```
+
+### Supported Markets
+
+| Market Code | Description |
+|-------------|-------------|
+| KRX | Korea Exchange (KOSPI) |
+| KOSDAQ | KOSDAQ |
+| NASDAQ | NASDAQ |
+| NYSE | New York Stock Exchange |
+| AMEX | American Stock Exchange |
+| TYO | Tokyo Stock Exchange |
+| HKG | Hong Kong Stock Exchange |
+
+### Order Conditions
+
+| Condition | Description |
+|-----------|-------------|
+| None | Regular order |
+| "best" | Best price (Best Limit) |
+| "condition" | Conditional order |
+| "extended" | Extended hours trading |
+
 ## Project Structure
 
 ```
@@ -199,11 +267,15 @@ kis-ai-trader/
 │   ├── core/
 │   │   ├── event_bus.py
 │   │   └── config.py
+│   ├── broker/
+│   │   ├── kis_client.py
+│   │   └── ...
 │   ├── main_coordinator.py
 │   └── risk_guard.py
 ├── tests/
 ├── docker-compose.yml
 ├── Dockerfile
+├── requirements.txt
 ├── pytest.ini
 └── README.md
 ```
@@ -230,6 +302,12 @@ pyright src/
 2. Inherit from `BaseStrategy`
 3. Implement `generate_signal` method
 4. Add to strategy registry
+
+## References
+
+- **KIS Developers Portal**: https://apiportal.koreainvestment.com
+- **python-kis Library**: https://github.com/Soju06/python-kis
+- **Official API Docs**: https://github.com/koreainvestment/open-trading-api
 
 ## License
 

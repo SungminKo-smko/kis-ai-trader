@@ -139,12 +139,12 @@ class KISCollector(BaseCollector):
                 from broker.kis_client import get_kis_client
                 client = get_kis_client()
                 
-                ohlcv = client.get_ohlcv(
+                ohlcv = client.get_chart(
                     symbol=symbol,
-                    timeframe="D",
-                    start_date=start_date.strftime("%Y%m%d"),
-                    end_date=end_date.strftime("%Y%m%d"),
-                    limit=days,
+                    period="D",
+                    start=start_date.strftime("%Y%m%d"),
+                    end=end_date.strftime("%Y%m%d"),
+                    ),
                 )
                 
                 data = CollectedData(
@@ -182,10 +182,10 @@ class KISCollector(BaseCollector):
                 from broker.kis_client import get_kis_client
                 client = get_kis_client()
                 
-                ohlcv = client.get_ohlcv(
+                ohlcv = client.get_chart(
                     symbol=symbol,
-                    timeframe=tf_code,
-                    limit=100,
+                    period=tf_code,
+                    ),
                 )
                 
                 data = CollectedData(
